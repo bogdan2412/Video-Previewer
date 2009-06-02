@@ -1,6 +1,14 @@
 #!/usr/bin/python
 
-version = "0.1"
+__version__ = "0.1"
+
+__copyright__ = """
+Copyright (c) 2009, bogdan2412
+"""
+
+__license__ = """
+All source code available in this repository is covered by a GPLv2 license.
+"""
 
 import optparse
 import logging
@@ -339,7 +347,7 @@ parser = optparse.OptionParser(
     usage="Usage: %prog [options] file [file ...]",
     description="Cross-platform python tool which generates a video's "
                 "index preview with multiple screen capture thumbnails.",
-    version="%%prog %s" % version
+    version="%%prog %s" % __version__
 )
 
 parser.set_defaults(
@@ -360,9 +368,11 @@ for app in app_list:
     parser.set_defaults(
         **{"path_%s" % app: which_or_None(app)}
     )
-    parser.add_option("--path-%s" % app,
-                      help="Specify path for '%s' application" % app,
-                      action="store", dest="path_%s" % app)
+    parser.add_option(
+        "--path-%s" % app,
+        help="Specify own path for '%s' application (optional)" % app,
+        action="store", dest="path_%s" % app
+    )
 
 # Add options related to the resulting thumbnail such as
 # number of rows or columns, width and height of the thumbnails,

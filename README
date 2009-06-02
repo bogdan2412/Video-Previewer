@@ -20,13 +20,14 @@ http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
     -v, --verbose         Print more detalied information
     -q, --quiet           Refrain from outputing anything
     --path-mplayer=PATH_MPLAYER
-                          Specify path for 'mplayer' application
+                          Specify own path for 'mplayer' application (optional)
     --path-midentify=PATH_MIDENTIFY
-                          Specify path for 'midentify' application
+                          Specify own path for 'midentify' application
+                          (optional)
     --path-convert=PATH_CONVERT
-                          Specify path for 'convert' application
+                          Specify own path for 'convert' application (optional)
     --path-montage=PATH_MONTAGE
-                          Specify path for 'montage' application
+                          Specify own path for 'montage' application (optional)
 
 == Capture options ==
     -r GRID_ROWS, --rows=GRID_ROWS
