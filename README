@@ -1,0 +1,74 @@
+=== Video Previewer ===
+
+Cross-platform python tool which generates a video's index preview with
+multiple screen capture thumbnails. You can see an example of what the preview
+might look like by viewing the "example.png" file.
+
+Currently, the script uses MPlayer to capture the video thumbnails and
+ImageMagick to generate the final preview image.
+
+The script is based off of the dhyana.pl script by Toby Inkster found here:
+http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
+
+=== Usage ===
+
+./video_previewer.py [options] file [file ...]
+
+== Options ==
+    --version             show program's version number and exit
+    -h, --help            show this help message and exit
+    -v, --verbose         Print more detalied information
+    -q, --quiet           Refrain from outputing anything
+    --path-mplayer=PATH_MPLAYER
+                          Specify path for 'mplayer' application
+    --path-midentify=PATH_MIDENTIFY
+                          Specify path for 'midentify' application
+    --path-convert=PATH_CONVERT
+                          Specify path for 'convert' application
+    --path-montage=PATH_MONTAGE
+                          Specify path for 'montage' application
+
+== Capture options ==
+    -r GRID_ROWS, --rows=GRID_ROWS
+                        Number of rows the generated grid should contain
+                        (default 6).
+    -c GRID_COLS, --cols=GRID_COLS, --columns=GRID_COLS
+                        Number of columns the generated grid should contain
+                        (default 4).
+    -t TITLE, --title=TITLE
+                        Title for the thumbnail (video's name is default).
+    -W THUMBNAIL_WIDTH, --width=THUMBNAIL_WIDTH
+                        The width of a single image in the grid in pixels.
+    -H THUMBNAIL_HEIGHT, --height=THUMBNAIL_HEIGHT
+                        The height of a single image in the grid in pixels. If
+                        only one of the width and height argument are
+                        specified, the other one will be determined so that
+                        the aspect ratio of the movie is preserved.
+    -S GRID_SPACING, --spacing=GRID_SPACING
+                        The space between images in the grid in pixels.
+                        (default 4)
+    --focus=CAPTURE_FOCUS
+                        Focus on the beginning or the ending of the movie.
+                        That means a greater number of thumbnails will be
+                        generated in the specified area than in the other
+                        part. For example if the focus is on the beginning of
+                        the movie, the frequency of captures drops as time
+                        goes by. Possible values are 'begin', 'end' and
+                        'none'. (default is 'none')
+
+== Style options ==
+    --background=BACKGROUND
+                        Background color (e.g. '#00ff00')
+    --font-family=FONT_FAMILY
+                        Path to TTF file for text
+    --font-size=FONT_SIZE
+                        Size of text in pixels
+    --font-color=FONT_COLOR
+                        Color of the text (e.g. 'black', '#000000')
+    --heading-font-family=HEADING_FONT_FAMILY
+                        Path to TTF file for heading
+    --heading-font-size=HEADING_FONT_SIZE
+                        Size of heading in pixels
+    --heading-font-color=HEADING_COLOR
+                        Color of the heading (e.g. 'black', '#000000')
+
