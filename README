@@ -19,15 +19,12 @@ http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
     -h, --help            show this help message and exit
     -v, --verbose         Print more detalied information
     -q, --quiet           Refrain from outputing anything
-    --path-mplayer=PATH_MPLAYER
-                          Specify own path for 'mplayer' application (optional)
-    --path-midentify=PATH_MIDENTIFY
-                          Specify own path for 'midentify' application
-                          (optional)
     --path-convert=PATH_CONVERT
                           Specify own path for 'convert' application (optional)
     --path-montage=PATH_MONTAGE
                           Specify own path for 'montage' application (optional)
+    -b BACKEND, --backend=BACKEND
+                          Backend used to capture images from video
 
 == Capture options ==
     -r GRID_ROWS, --rows=GRID_ROWS
@@ -73,3 +70,11 @@ http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
     --heading-font-color=HEADING_COLOR
                         Color of the heading (e.g. 'black', '#000000')
 
+== MPlayer Backend Options ==
+Only necessary if you choose this backend.
+
+    --path-mplayer=PATH_MPLAYER
+                        Specify own path for 'mplayer' application (optional)
+    --path-midentify=PATH_MIDENTIFY
+                        Specify own path for 'midentify' application
+                        (optional)
