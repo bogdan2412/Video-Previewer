@@ -24,7 +24,11 @@ http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
     --path-montage=PATH_MONTAGE
                           Specify own path for 'montage' application (optional)
     -b BACKEND, --backend=BACKEND
-                          Backend used to capture images from video
+                          Backend used to capture images from video. Possible
+                          values are 'gstreamer' (default) and 'mplayer'. The
+                          gstreamer backend is recommended because it is faster,
+                          has better support for video formats and more
+                          correctly determines thumbnail timestamps.
 
 == Capture options ==
     -r GRID_ROWS, --rows=GRID_ROWS
