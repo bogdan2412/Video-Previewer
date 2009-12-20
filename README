@@ -4,8 +4,9 @@ Cross-platform python tool which generates a video's index preview with
 multiple screen capture thumbnails. You can see an example of what the preview
 might look like by viewing the "example.png" file.
 
-Currently, the script uses MPlayer to capture the video thumbnails and
-ImageMagick to generate the final preview image.
+The script supports two backends for capturing video thumbnails, the user can
+choose between using GStreamer (default) or MPlayer. The final preview image is
+generated with ImageMagick currently.
 
 The script is based off of the dhyana.pl script by Toby Inkster found here:
 http://tobyinkster.co.uk/blog/2008/01/06/dhyana/
