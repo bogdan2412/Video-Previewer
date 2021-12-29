@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__version__ = "0.2.99.01"
+__version__ = "0.2.99.02"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
