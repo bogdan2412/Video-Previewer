@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "0.2.99.04"
+__version__ = "0.2.99.05"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
@@ -13,7 +13,6 @@ All source code available in this repository is covered by a GPLv2 license.
 import argparse
 import copy
 import logging
-import os
 import pathlib
 import shutil
 import subprocess
@@ -247,9 +246,9 @@ class CLIMain:
 
         # Create temporary directory
         with tempfile.TemporaryDirectory(prefix="video_previewer") as tmp_dir:
-            self.tmp_dir = tmp_dir
-
+            self.tmp_dir = pathlib.Path(tmp_dir)
             self.backend = self.backend(self.args, self.tmp_dir)
+
             # Start working
             for file in self.files:
                 if not file.is_file():
@@ -259,9 +258,9 @@ class CLIMain:
                 self.process_file(file)
 
     # Generate thumbnail for a video
-    def process_file(self, file_name):
-        logging.info("Started processing file '%s'" % file_name)
-        info = self.backend.load_file(file_name)
+    def process_file(self, file):
+        logging.info("Started processing file '%s'" % file)
+        info = self.backend.load_file(file)
 
         width = self.args.thumbnail_width
         height = self.args.thumbnail_height
@@ -328,31 +327,33 @@ class CLIMain:
         # Capture frames
         frame_files = self.backend.capture_frames(frame_times)
         count = 0
-        for file, time in frame_files:
+        for frame_file, time in frame_files:
             count += 1
             logging.debug("Resizing and annotating frame %d." % count)
             self.resize_and_annotate_frame(
-                    file,
+                    frame_file,
                     width,
                     height,
                     self.backend.capture_time_to_seconds(time))
 
         logging.info("Finished capturing frames. Creating montage.")
-        if self.create_montage(file_name, info, self.tmp_dir, frame_files):
-            destination = file_name.with_suffix(".png")
-            shutil.move("%s/montage.png" % self.tmp_dir, str(destination))
+        montage_file = self.create_montage(
+                file, info, self.tmp_dir, frame_files)
+        if montage_file:
+            destination = file.with_suffix(".png")
+            shutil.move(str(montage_file), str(destination))
             logging.info("Saving final thumbnail to '%s'" % destination)
 
         # Cleanup
         self.backend.unload_file()
-        for file, time in frame_files:
-            os.remove(file)
+        for frame_file, _time in frame_files:
+            frame_file.unlink()
 
     # Transform a captured frame into a thumbnail by resizing it and annotating
     # it's timestamp
-    def resize_and_annotate_frame(self, file_name, width, height, time):
+    def resize_and_annotate_frame(self, file, width, height, time):
         process = subprocess.Popen(
-            [str(self.args.path_convert), file_name,
+            [str(self.args.path_convert), str(file),
              "-resize", "%dx%d!" % (width, height),
              "-fill", self.args.font_color,
              "-undercolor", "%s80" % self.args.background,
@@ -362,20 +363,21 @@ class CLIMain:
              "-annotate", "+0+0", " %s " % time_format(time),
              "-bordercolor", self.args.font_color,
              "-border", "1x1",
-             file_name],
+             str(file)],
             shell=False)
         process.wait()
 
     # Create a montage of all frame captures from the tmp directory
-    def create_montage(self, file_name, info, tmp_dir, files):
+    def create_montage(self, file, info, tmp_dir, frame_files):
         rows = self.args.grid_rows
         cols = self.args.grid_cols
-        if len(files) != rows * cols:
-            rows = int(math.ceil(float(len(files)) / cols))
-            logging.info("Only %d captures, so the "
-                         "grid will be %d by %d" % (len(files), rows, cols))
+        if len(frame_files) != rows * cols:
+            rows = int(math.ceil(float(len(frame_files)) / cols))
+            logging.info(
+                    "Only %d captures, so the "
+                    "grid will be %d by %d" % (len(frame_files), rows, cols))
 
-        montage_file_name = "%s/montage.png" % tmp_dir
+        montage_file = tmp_dir / "montage.png"
         process = subprocess.Popen(
             [str(self.args.path_montage),
              "-geometry", "+%d+%d" % (self.args.grid_spacing,
@@ -383,19 +385,19 @@ class CLIMain:
              "-background", self.args.background,
              "-fill", self.args.font_color,
              "-tile", "%dx%d" % (cols, rows)]
-            + [item[0] for item in files]
-            + [montage_file_name],
+            + [str(frame_file) for frame_file, _time in frame_files]
+            + [str(montage_file)],
             shell=False)
         process.wait()
-        if not os.path.isfile(montage_file_name):
+        if not montage_file.is_file():
             logging.error("Error creating montage.")
-            return False
+            return None
 
         # Annotate montage with title and header
         title = self.args.title or self.backend.info.get("title", None)
         if title is None:
-            title = file_name.name
-        header = self.get_header_text(file_name, info)
+            title = file.name
+        header = self.get_header_text(file, info)
         process = subprocess.Popen(
             [str(self.args.path_convert),
              "-background", self.args.background,
@@ -417,19 +419,19 @@ class CLIMain:
              "-border", "%dx%d" % (self.args.grid_spacing, 0),
 
              # Montage
-             montage_file_name,
+             str(montage_file),
              # Border for montage
              "-border", "%dx%d" % (self.args.grid_spacing,
                                    self.args.grid_spacing),
              "-append",
-             montage_file_name],
+             str(montage_file)],
             shell=False)
         process.wait()
-        return True
+        return montage_file
 
     # Determine what will be written to the thumbnail's header
-    def get_header_text(self, file_name, info):
-        file_size = file_name.stat().st_size
+    def get_header_text(self, file, info):
+        file_size = file.stat().st_size
         text = "Size   : %s (%d bytes)\n" % (
                 file_size_format(file_size),
                 file_size)

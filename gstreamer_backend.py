@@ -1,5 +1,5 @@
 import logging
-import os
+import pathlib
 import shutil
 import threading
 import time
@@ -38,7 +38,7 @@ class GStreamerBackend(BaseBackend):
                 "multi-file-sink")
         multifilesink.set_property(
                 "location",
-                os.path.join(self.tmp_dir, "output-%05d.png"))
+                str(self.tmp_dir / "output-%05d.png"))
         multifilesink.set_property("post-messages", True)
 
         # Add elements to player pipeline
@@ -109,7 +109,7 @@ class GStreamerBackend(BaseBackend):
            message.src.get_property("name") == "multi-file-sink":
             structure = message.get_structure()
             self._capture["capture_time"] = structure["timestamp"]
-            self._capture["file_name"] = structure["filename"]
+            self._capture["file_name"] = pathlib.Path(structure["filename"])
             self._capture["done"] = True
             self.player.set_state(Gst.State.PAUSED)
 
@@ -195,9 +195,9 @@ class GStreamerBackend(BaseBackend):
             time.sleep(0.1)
 
         if destination is not None:
-            shutil.move(self._capture["file_name"], destination)
+            shutil.move(str(self._capture["file_name"]), str(destination))
         else:
-            os.remove(self._capture["file_name"])
+            self._capture["file_name"].unlink()
         return self._capture["capture_time"]
 
 

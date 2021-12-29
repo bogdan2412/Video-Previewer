@@ -1,6 +1,6 @@
 import argparse
 import logging
-import os
+import shlex
 import shutil
 import subprocess
 
@@ -92,15 +92,14 @@ class MPlayerBackend(BaseBackend):
 
     # Capture frames using the 'mplayer' application.
     def capture_frame(self, capture_time, destination=None):
-        # TODO: figure out how to run this with shell=False so we have proper
-        # escaping of file names
+        # TODO: figure out how to run this with shell=False
         process = subprocess.Popen(
-            "%s -really-quiet -nosound -vo png:z=3:outdir='%s' -frames 1 "
-            "-ss %f '%s'" % (
-                self.args.path_mplayer,
-                self.tmp_dir,
+            "%s -really-quiet -nosound -vo png:z=3:outdir=%s -frames 1 "
+            "-ss %f %s" % (
+                shlex.quote(str(self.args.path_mplayer)),
+                shlex.quote(str(self.tmp_dir)),
                 capture_time,
-                self.file_name),
+                shlex.quote(str(self.file_name))),
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
@@ -108,7 +107,8 @@ class MPlayerBackend(BaseBackend):
         error = process.stderr.read()
         process.wait()
 
-        if not os.path.isfile("%s/00000001.png" % self.tmp_dir):
+        expected_output_file = self.tmp_dir / "00000001.png"
+        if not expected_output_file.is_file():
             if destination is not None:
                 logging.error(
                         "Something went wrong when trying to capture "
@@ -116,9 +116,9 @@ class MPlayerBackend(BaseBackend):
             return False
         else:
             if destination is not None:
-                shutil.move("%s/00000001.png" % self.tmp_dir, destination)
+                shutil.move(str(expected_output_file), str(destination))
             else:
-                os.remove("%s/00000001.png" % self.tmp_dir)
+                expected_output_file.unlink()
             # The timestamp will not actually be equal to capture_time always,
             # but it's hard to determine it exactly.
             return capture_time

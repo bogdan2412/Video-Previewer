@@ -54,11 +54,12 @@ class BaseBackend(object):
             logging.debug(
                     "Capturing frame number %d at %f seconds."
                     % (current, self.capture_time_to_seconds(time)))
-            frame_file_name = "%s/frame-%0*d.png" % (
-                self.tmp_dir, safe_int_log(len(frame_times), 10) + 1, current)
-            capture_time = self.capture_frame(time, frame_file_name)
+            frame_file_name = "frame-%0*d.png" % (
+                    safe_int_log(len(frame_times), 10) + 1, current)
+            frame_file = self.tmp_dir / frame_file_name
+            capture_time = self.capture_frame(time, frame_file)
             if capture_time:
-                frame_files.append((frame_file_name, capture_time))
+                frame_files.append((frame_file, capture_time))
         return frame_files
 
 
