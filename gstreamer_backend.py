@@ -69,7 +69,7 @@ class GStreamerBackend(BaseBackend):
     def decoder_callback(self, decoder, pad):
         caps = pad.get_current_caps()
         cap_count = caps.get_size()
-        for index in xrange(cap_count):
+        for index in range(cap_count):
             structure_name = caps.get_structure(index).get_name()
             if structure_name.startswith("video"):
                 video_sink = self.player.get_by_name("video-sink")
@@ -87,15 +87,15 @@ class GStreamerBackend(BaseBackend):
             }
 
             tags = message.parse_tag()
-            for tag_index in xrange(tags.n_tags()):
+            for tag_index in range(tags.n_tags()):
                 tag_name = tags.nth_tag_name(tag_index)
                 tag_size = tags.get_tag_size(tag_name)
                 tag_value = tags.get_value_index(tag_name, 0)
 
-                if tag_size <> 1:
+                if tag_size != 1:
                     tag_values = [
                             tags.get_value_index(tag_name, index)
-                            for index in xrange(tag_size)
+                            for index in range(tag_size)
                             ]
                     logging.info(
                             "Unexpected tag with multiple values: %s - %s"
@@ -162,9 +162,9 @@ class GStreamerBackend(BaseBackend):
         for pad in decoder.srcpads:
             caps = pad.get_current_caps()
             cap_count = caps.get_size()
-            for index in xrange(cap_count):
+            for index in range(cap_count):
                 cap = caps.get_structure(index)
-                for field_index in xrange(cap.n_fields()):
+                for field_index in range(cap.n_fields()):
                     name = cap.nth_field_name(field_index)
                     if cap.get_name().startswith("video"):
                         if name in video_info_conv:

@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
-__version__ = "0.2.99.02"
+__version__ = "0.2.99.03"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
@@ -20,7 +20,7 @@ import tempfile
 
 from mplayer_backend import MPlayerBackend
 from gstreamer_backend import GStreamerBackend
-from util import safe_int_log, which_or_None
+from util import safe_int_log
 
 
 # Returns a humanized string for a given amount of seconds
@@ -119,7 +119,7 @@ class CLIMain:
                 action="store",
                 type="apppath",
                 dest="path_%s" % app,
-                default=which_or_None(app))
+                default=shutil.which(app))
 
         # Add options related to the resulting thumbnail such as
         # number of rows or columns, width and height of the thumbnails,
@@ -265,7 +265,7 @@ class CLIMain:
                     "determines thumbnail timestamps."),
                 action="store",
                 type="choice",
-                choices=self.backends.keys(),
+                choices=list(self.backends.keys()),
                 dest="backend",
                 default="gstreamer")
         for backend in self.backends.values():
@@ -429,7 +429,7 @@ class CLIMain:
              "-background", self.options.background,
              "-fill", self.options.font_color,
              "-tile", "%dx%d" % (cols, rows)]
-            + map(lambda item: item[0], files)
+            + [item[0] for item in files]
             + [montage_file_name],
             shell=False)
         process.wait()

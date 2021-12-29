@@ -1,12 +1,4 @@
 import math
-import which
-
-
-def which_or_None(str):
-    try:
-        return which.which(str)
-    except which.WhichError:
-        return None
 
 
 # Safe conversion of logarithm to floor integer value

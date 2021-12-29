@@ -5,7 +5,6 @@ import shutil
 import subprocess
 
 from base_backend import BaseBackend
-from util import which_or_None
 
 
 class MPlayerBackend(BaseBackend):
@@ -28,7 +27,7 @@ class MPlayerBackend(BaseBackend):
                 action="store",
                 type="apppath",
                 dest="path_%s" % app,
-                default=which_or_None(app))
+                default=shutil.which(app))
         return optgroup
 
     # Determine video's information using the 'midentify' application
@@ -41,7 +40,7 @@ class MPlayerBackend(BaseBackend):
                 [self.options.path_midentify, file_name],
                 shell=False,
                 stdout=subprocess.PIPE)
-        output = process.stdout.readlines()
+        output = process.stdout.read()
         process.wait()
 
         info = {}
@@ -58,7 +57,7 @@ class MPlayerBackend(BaseBackend):
             "ID_AUDIO_BITRATE": ("audio_bitrate", float),
             "ID_AUDIO_CODEC": ("audio_codec", str),
         }
-        for line in output:
+        for line in output.decode("utf-8").splitlines():
             (key, value) = line.split("=")
             value = value.replace("\\", "").replace("\n", "")
             if key in info_conv:
