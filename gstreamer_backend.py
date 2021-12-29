@@ -8,8 +8,8 @@ from base_backend import BaseBackend
 
 
 class GStreamerBackend(BaseBackend):
-    def __init__(self, options, tmp_dir):
-        self.options = options
+    def __init__(self, args, tmp_dir):
+        self.args = args
         self.tmp_dir = tmp_dir
         self.frame_capture_padding = 0.5 * 1000000000
 

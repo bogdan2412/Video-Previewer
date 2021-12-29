@@ -5,8 +5,8 @@ from util import safe_int_log
 
 # Base-class for capturing backends
 class BaseBackend(object):
-    def __init__(self, options, tmp_dir):
-        self.options = options
+    def __init__(self, args, tmp_dir):
+        self.args = args
         self.tmp_dir = tmp_dir
         # When calculating frame capture times, this specifies a padding at the
         # beginning and ending of the video so that there are no problems with
@@ -19,7 +19,7 @@ class BaseBackend(object):
 
     # Should be subclassed if the backend is configurable from command-line
     @staticmethod
-    def get_option_parser_group(parser):
+    def get_argument_parser_group(parser):
         return None
 
     # Load a video file and determine information about it such as width,

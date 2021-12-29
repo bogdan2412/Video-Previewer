@@ -1,10 +1,11 @@
+import argparse
 import logging
-import optparse
 import os
 import shutil
 import subprocess
 
 from base_backend import BaseBackend
+from util import add_app_path_arg
 
 
 class MPlayerBackend(BaseBackend):
@@ -12,32 +13,26 @@ class MPlayerBackend(BaseBackend):
     def capture_time_to_seconds(self, time):
         return time / self.duration_scale
 
-    # Add path options for mplayer and midentify
+    # Add path args for mplayer and midentify
     @staticmethod
-    def get_option_parser_group(parser):
-        optgroup = optparse.OptionGroup(
-                parser,
-                "MPlayer Backend Options",
+    def get_argument_parser_group(parser):
+        group = parser.add_argument_group(
+                "MPlayer backend options",
                 "Only necessary if you choose this backend.")
         app_list = ("mplayer", "midentify")
         for app in app_list:
-            optgroup.add_option(
-                "--path-%s" % app,
-                help="Specify own path for '%s' application (optional)" % app,
-                action="store",
-                type="apppath",
-                dest="path_%s" % app,
-                default=shutil.which(app))
-        return optgroup
+            add_app_path_arg(group, app=app)
+        return group
 
     # Determine video's information using the 'midentify' application
     def load_file(self, file_name):
         self.file_name = file_name
-        logging.debug("Using '%s' to get video's information."
-                      % self.options.path_midentify)
+        logging.debug(
+                "Using '%s' to get video's information."
+                % self.args.path_midentify)
 
         process = subprocess.Popen(
-                [self.options.path_midentify, file_name],
+                [str(self.args.path_midentify), str(file_name)],
                 shell=False,
                 stdout=subprocess.PIPE)
         output = process.stdout.read()
@@ -102,7 +97,7 @@ class MPlayerBackend(BaseBackend):
         process = subprocess.Popen(
             "%s -really-quiet -nosound -vo png:z=3:outdir='%s' -frames 1 "
             "-ss %f '%s'" % (
-                self.options.path_mplayer,
+                self.args.path_mplayer,
                 self.tmp_dir,
                 capture_time,
                 self.file_name),
