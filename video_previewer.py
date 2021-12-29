@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-__version__ = "0.2.99.00"
+__version__ = "0.2.99.01"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
@@ -10,20 +10,17 @@ __license__ = """
 All source code available in this repository is covered by a GPLv2 license.
 """
 
-import optparse
+import copy
 import logging
-import subprocess
-import math
-import shutil
+import optparse
 import os
+import shutil
+import subprocess
+import tempfile
 
-
-def which_or_None(str):
-    import which
-    try:
-        return which.which(str)
-    except which.WhichError:
-        return None
+from mplayer_backend import MPlayerBackend
+from gstreamer_backend import GStreamerBackend
+from util import safe_int_log, which_or_None
 
 
 # Returns a humanized string for a given amount of seconds
@@ -33,16 +30,6 @@ def time_format(seconds):
         seconds / 3600,
         (seconds % 3600) / 60,
         seconds % 60)
-
-
-# Safe conversion of logarithm to floor integer value
-def safe_int_log(value, base):
-    log = int(math.floor(math.log(value, base)))
-    while base ** log > value:
-        log -= 1
-    while base ** (log + 1) <= value:
-        log += 1
-    return log
 
 
 # Returns a humanized string for a given amount of bytes
@@ -67,9 +54,8 @@ def check_apppath(option, opt, value):
 
 
 class OptionAppPath(optparse.Option):
-    from copy import copy
     TYPES = optparse.Option.TYPES + ("apppath",)
-    TYPE_CHECKER = copy(optparse.Option.TYPE_CHECKER)
+    TYPE_CHECKER = copy.copy(optparse.Option.TYPE_CHECKER)
     TYPE_CHECKER["apppath"] = check_apppath
 
 
@@ -97,343 +83,6 @@ class OptionParser(optparse.OptionParser):
                 check_option(option)
 
         return (values, args)
-
-
-# Base-class for capturing backends
-class Backend:
-    def __init__(self, options, tmp_dir):
-        self.options = options
-        self.tmp_dir = tmp_dir
-        # When calculating frame capture times, this specifies a padding at the
-        # beginning and ending of the video so that there are no problems with
-        # the capture times not being in bounds.
-        self.frame_capture_padding = 0.5
-
-    # Converts a frame capture time into seconds.
-    def capture_time_to_seconds(self, time):
-        return time
-
-    # Should be subclassed if the backend is configurable from command-line
-    @staticmethod
-    def get_option_parser_group(parser):
-        return None
-
-    # Load a video file and determine information about it such as width,
-    # height, framerate, etc.
-    # The file name should be stored in self.file_name and the information
-    # should be stored in a dict in self.info and returned by the method.
-    def load_file(self, file_name):
-        self.file_name = file_name
-        raise NotImplementedError(
-            "This method should be overriden by subclasses.")
-
-    # Unload the file
-    def unload_file(self):
-        self.file_name = None
-
-    # Capture the loaded video's image at a certain time and save it to
-    # destination. If the capture was not successful False is returned.
-    # However, if the capture was successful, the frame timestamp should be
-    # returned since the backend may not be able to capture the frame at
-    # exactly the specified time. If destination is None then the generated
-    # file is simply deleted.
-    def capture_frame(self, capture_time, destination=None):
-        raise NotImplementedError(
-            "This method should be overriden by subclasses.")
-
-    # Receives a list of capture times of all the frames and captures them.
-    # Returns a list of the captured frame files.
-    def capture_frames(self, frame_times):
-        frame_files = []
-        for time in frame_times:
-            current = len(frame_files) + 1
-            logging.debug(
-                    "Capturing frame number %d at %f seconds."
-                    % (current, self.capture_time_to_seconds(time)))
-            frame_file_name = "%s/frame-%0*d.png" % (
-                self.tmp_dir, safe_int_log(len(frame_times), 10) + 1, current)
-            capture_time = self.capture_frame(time, frame_file_name)
-            if capture_time:
-                frame_files.append((frame_file_name, capture_time))
-        return frame_files
-
-
-class MPlayerBackend(Backend):
-    # Reverse scale applied in get_video_info
-    def capture_time_to_seconds(self, time):
-        return time / self.duration_scale
-
-    # Add path options for mplayer and midentify
-    @staticmethod
-    def get_option_parser_group(parser):
-        optgroup = optparse.OptionGroup(
-                parser,
-                "MPlayer Backend Options",
-                "Only necessary if you choose this backend.")
-        app_list = ("mplayer", "midentify")
-        for app in app_list:
-            optgroup.add_option(
-                "--path-%s" % app,
-                help="Specify own path for '%s' application (optional)" % app,
-                action="store",
-                type="apppath",
-                dest="path_%s" % app,
-                default=which_or_None(app))
-        return optgroup
-
-    # Determine video's information using the 'midentify' application
-    def load_file(self, file_name):
-        self.file_name = file_name
-        logging.debug("Using '%s' to get video's information."
-                      % self.options.path_midentify)
-
-        process = subprocess.Popen(
-                [self.options.path_midentify, file_name],
-                shell=False,
-                stdout=subprocess.PIPE)
-        output = process.stdout.readlines()
-        process.wait()
-
-        info = {}
-        # Convert information outputted by midentify into a cross-backend form.
-        info_conv = {
-            "ID_LENGTH": ("duration", float),
-            "ID_VIDEO_WIDTH": ("width", int),
-            "ID_VIDEO_HEIGHT": ("height", int),
-            "ID_VIDEO_FPS": ("video_framerate", float),
-            "ID_VIDEO_BITRATE": ("video_bitrate", float),
-            "ID_VIDEO_FORMAT": ("video_codec", str),
-            "ID_AUDIO_NCH": ("audio_channels", int),
-            "ID_AUDIO_RATE": ("audio_rate", float),
-            "ID_AUDIO_BITRATE": ("audio_bitrate", float),
-            "ID_AUDIO_CODEC": ("audio_codec", str),
-        }
-        for line in output:
-            (key, value) = line.split("=")
-            value = value.replace("\\", "").replace("\n", "")
-            if key in info_conv:
-                info[info_conv[key][0]] = info_conv[key][1](value)
-
-        self.duration_scale = 1
-        # midentify doesn't work properly on some wmv files and it returns
-        # ID_VIDEO_FPS == 1000. In this case we have to scale the timings of
-        # the frames so that mplayer correctly captures all the needed frames.
-        if info["video_framerate"] == 1000:
-            logging.info("Not properly supported WMV format detected. "
-                         "Adjusting times...")
-
-            # Binary search the amount with which to scale the duration so that
-            # capturing doesn't produce any errors
-            left = 0.0
-            right = 2.0
-            EPS = 0.001
-            while right - left >= EPS:
-                middle = (right + left) * 0.5
-                if self.capture_frame(info["duration"] * middle):
-                    left = middle + EPS
-                else:
-                    right = middle - EPS
-
-            self.duration_scale = left - EPS
-            info["duration"] *= self.duration_scale
-            logging.debug("The determined scale is %f." % self.duration_scale)
-            logging.info("Finished adjusting times. Starting frame capture.")
-
-            # Delete unreliable information
-            del info["video_framerate"]
-            del info["video_bitrate"]
-
-        self.info = info
-        return self.info
-
-    # Capture frames using the 'mplayer' application.
-    def capture_frame(self, capture_time, destination=None):
-        # TODO: figure out how to run this with shell=False so we have proper
-        # escaping of file names
-        process = subprocess.Popen(
-            "%s -really-quiet -nosound -vo png:z=3:outdir='%s' -frames 1 "
-            "-ss %f '%s'" % (
-                self.options.path_mplayer,
-                self.tmp_dir,
-                capture_time,
-                self.file_name),
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        output = process.stdout.read()
-        error = process.stderr.read()
-        process.wait()
-
-        if not os.path.isfile("%s/00000001.png" % self.tmp_dir):
-            if destination is not None:
-                logging.error(
-                        "Something went wrong when trying to capture "
-                        "frame at %d seconds" % capture_time)
-            return False
-        else:
-            if destination is not None:
-                shutil.move("%s/00000001.png" % self.tmp_dir, destination)
-            else:
-                os.remove("%s/00000001.png" % self.tmp_dir)
-            # The timestamp will not actually be equal to capture_time always,
-            # but it's hard to determine it exactly.
-            return capture_time
-
-
-class GStreamerBackend(Backend):
-    def __init__(self, options, tmp_dir):
-        self.options = options
-        self.tmp_dir = tmp_dir
-        self.frame_capture_padding = 0.5 * 1000000000
-
-        # Import python gstreamer libraries
-        global pygst, gst, gobject, threading, time
-        import pygst
-        pygst.require("0.10")
-        import gst
-        import gobject
-        import threading
-        import time
-
-        # Create gstreamer player object
-        self.player = gst.Pipeline("player")
-
-        # File source and universal decoder
-        filesrc = gst.element_factory_make("filesrc", "file-source")
-        decoder = gst.element_factory_make("decodebin", "decoder")
-        decoder.connect("new-decoded-pad", self.decoder_callback)
-
-        # PNG encoder, Multiple File sink and colorspace converter required by
-        # PNG encoder
-        colorspace = gst.element_factory_make("ffmpegcolorspace", "video-sink")
-        pngenc = gst.element_factory_make("pngenc", "png-encoder")
-        pngenc.set_property("snapshot", True)
-        multifilesink = gst.element_factory_make(
-                "multifilesink",
-                "multi-file-sink")
-        multifilesink.set_property(
-                "location",
-                os.path.join(self.tmp_dir, "output-%05d.png"))
-        multifilesink.set_property("post-messages", True)
-
-        # Add elements to player pipeline
-        self.player.add(filesrc, decoder, colorspace, pngenc, multifilesink)
-        gst.element_link_many(filesrc, decoder)
-        gst.element_link_many(colorspace, pngenc, multifilesink)
-
-        bus = self.player.get_bus()
-        bus.add_signal_watch()
-        bus.connect("message", self.on_message)
-
-        # Initialize gobject MainLoop in a new thread
-        gobject.threads_init()
-        self.main_loop = gobject.MainLoop()
-
-        def main_loop_thread():
-            self.main_loop.run()
-        self.main_loop_thread = threading.Thread(target=main_loop_thread)
-        self.main_loop_thread.daemon = True
-        self.main_loop_thread.start()
-
-    # Decoder callback, used to link video pad to sink
-    def decoder_callback(self, decoder, pad, data):
-        structure_name = pad.get_caps()[0].get_name()
-        if structure_name.startswith("video"):
-            video_pad = self.player.get_by_name("video-sink").get_pad("sink")
-            pad.link(video_pad)
-
-    # Handle gstreamer messages
-    def on_message(self, bug, message):
-        if message.type == gst.MESSAGE_TAG:
-            tag_conv = {
-                gst.TAG_VIDEO_CODEC: "video_codec",
-                gst.TAG_AUDIO_CODEC: "audio_codec",
-                gst.TAG_TITLE: "title",
-                gst.TAG_BITRATE: "audio_bitrate",
-            }
-            for id in range(message.structure.n_fields()):
-                name = message.structure.nth_field_name(id)
-                if name in tag_conv:
-                    self.info[tag_conv[name]] = message.structure[name]
-        # A frame has been captured
-        if message.type == gst.MESSAGE_ELEMENT and \
-           message.src.get_property("name") == "multi-file-sink":
-            self._capture["capture_time"] = message.structure["timestamp"]
-            self._capture["file_name"] = message.structure["filename"]
-            self._capture["done"] = True
-
-    # Converts nanoseconds into seconds.
-    def capture_time_to_seconds(self, time):
-        return time / 1000000000.0
-
-    # Initialize gstreamer player with the given file
-    def load_file(self, file_name):
-        self.file_name = file_name
-        self.player.get_by_name("file-source").set_property(
-            "location", file_name)
-
-        # Initialize the player
-        self.player.set_state(gst.STATE_PAUSED)
-        # Since all gstreamer calls are asynchronous, video information will
-        # not be immediately available so we retry to determine it every 0.1
-        # seconds until we succeed.
-        self.info = {}
-        while True:
-            try:
-                self.info["duration"] = self.player.query_duration(
-                    gst.Format(gst.FORMAT_TIME), None)[0]
-                time.sleep(0.1)
-                break
-            except gst.QueryError:
-                pass
-
-        # Determine other stream information. Some of the information will get
-        # added through gst.MESSAGE_TAG messages sent by gstreamer.
-        video_info_conv = {
-            "width": ("width", int),
-            "height": ("height", int),
-            "framerate": ("video_framerate", float),
-            "interlaced": ("video_interlaced", bool),
-        }
-        audio_info_conv = {
-            "channels": ("audio_channels", int),
-            "rate": ("audio_rate", float),
-        }
-        for i in self.player.get_by_name("decoder").src_pads():
-            caps = i.get_caps()[0]
-            for id in range(caps.n_fields()):
-                name = caps.nth_field_name(id)
-                if caps.get_name().startswith("video"):
-                    if name in video_info_conv:
-                        self.info[video_info_conv[name][0]] = \
-                            video_info_conv[name][1](caps[name])
-                elif caps.get_name().startswith("audio"):
-                    if name in audio_info_conv:
-                        self.info[audio_info_conv[name][0]] = \
-                            audio_info_conv[name][1](caps[name])
-        return self.info
-
-    def unload_file(self):
-        self.player.set_state(gst.STATE_NULL)
-        self.file_name = None
-
-    def capture_frame(self, capture_time, destination=None):
-        self.player.seek_simple(
-                gst.Format(gst.FORMAT_TIME),
-                gst.SEEK_FLAG_FLUSH,
-                capture_time)
-        self.player.set_state(gst.STATE_PLAYING)
-
-        # Wait for frame to be captured
-        self._capture = {"done": False}
-        while not self._capture["done"]:
-            time.sleep(0.1)
-
-        if destination is not None:
-            shutil.move(self._capture["file_name"], destination)
-        else:
-            os.remove(self._capture["file_name"])
-        return self._capture["capture_time"]
 
 
 class CLIMain:
@@ -639,7 +288,6 @@ class CLIMain:
         self.options, self.files = options, args
 
         # Create temporary directory
-        import tempfile
         self.tmp_dir = tempfile.mkdtemp(prefix="video_previewer")
 
         self.backend = self.backends[self.options.backend](
