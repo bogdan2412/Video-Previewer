@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-__version__ = "0.2"
+__version__ = "0.2.99.00"
 
 __copyright__ = """
-Copyright (c) 2009, bogdan2412
+Copyright (c) 2009-2021 Bogdan Tataroiu
 """
 
 __license__ = """
@@ -17,6 +17,7 @@ import math
 import shutil
 import os
 
+
 def which_or_None(str):
     import which
     try:
@@ -24,14 +25,15 @@ def which_or_None(str):
     except which.WhichError:
         return None
 
+
 # Returns a humanized string for a given amount of seconds
 def time_format(seconds):
     seconds = int(seconds)
     return "%d:%02d:%02d" % (
         seconds / 3600,
         (seconds % 3600) / 60,
-        seconds % 60
-    )
+        seconds % 60)
+
 
 # Safe conversion of logarithm to floor integer value
 def safe_int_log(value, base):
@@ -41,6 +43,7 @@ def safe_int_log(value, base):
     while base ** (log + 1) <= value:
         log += 1
     return log
+
 
 # Returns a humanized string for a given amount of bytes
 def file_size_format(bytes, precision=2):
@@ -52,8 +55,8 @@ def file_size_format(bytes, precision=2):
     return "%.*f%s" % (
         precision,
         bytes / (1024.0 ** log),
-        ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][log]
-    )
+        ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][log])
+
 
 # Defines a new optparse type to use with application paths
 def check_apppath(option, opt, value):
@@ -62,35 +65,39 @@ def check_apppath(option, opt, value):
             "option %s: Specified application could not be found" % opt)
     return value
 
+
 class OptionAppPath(optparse.Option):
     from copy import copy
     TYPES = optparse.Option.TYPES + ("apppath",)
     TYPE_CHECKER = copy(optparse.Option.TYPE_CHECKER)
     TYPE_CHECKER["apppath"] = check_apppath
 
+
 # Subclass of optparse.OptionParser which checks that all "apppath" options
 # have non-Null values.
 class OptionParser(optparse.OptionParser):
     def check_values(self, values, args):
         def check_option(option):
-            if (option.type == "apppath" and
-                getattr(values, option.dest, None) is None):
-                self.error("Could not find application needed to run. "
-                    "Please specify it's location using the %s argument."
-                    % option.get_opt_string())
+            if option.type == "apppath" and \
+               getattr(values, option.dest, None) is None:
+                self.error(
+                        "Could not find application needed to run. "
+                        "Please specify it's location using the %s argument."
+                        % option.get_opt_string())
 
         for option in self.option_list:
             check_option(option)
         for group in self.option_groups:
             # Skip over backend groups if they were not selected
-            if (group.title.lower().find("backend") != -1
-                and group.title.lower().find(values.backend) == -1):
+            if group.title.lower().find("backend") != -1 and \
+               group.title.lower().find(values.backend) == -1:
                 continue
 
             for option in group.option_list:
                 check_option(option)
 
         return (values, args)
+
 
 # Base-class for capturing backends
 class Backend:
@@ -139,15 +146,17 @@ class Backend:
     def capture_frames(self, frame_times):
         frame_files = []
         for time in frame_times:
-            current = len(frame_files) +1
-            logging.debug("Capturing frame number %d at %f seconds."
-                % (current, self.capture_time_to_seconds(time)))
+            current = len(frame_files) + 1
+            logging.debug(
+                    "Capturing frame number %d at %f seconds."
+                    % (current, self.capture_time_to_seconds(time)))
             frame_file_name = "%s/frame-%0*d.png" % (
                 self.tmp_dir, safe_int_log(len(frame_times), 10) + 1, current)
             capture_time = self.capture_frame(time, frame_file_name)
             if capture_time:
                 frame_files.append((frame_file_name, capture_time))
         return frame_files
+
 
 class MPlayerBackend(Backend):
     # Reverse scale applied in get_video_info
@@ -157,14 +166,18 @@ class MPlayerBackend(Backend):
     # Add path options for mplayer and midentify
     @staticmethod
     def get_option_parser_group(parser):
-        optgroup = optparse.OptionGroup(parser, "MPlayer Backend Options",
-            "Only necessary if you choose this backend.")
+        optgroup = optparse.OptionGroup(
+                parser,
+                "MPlayer Backend Options",
+                "Only necessary if you choose this backend.")
         app_list = ("mplayer", "midentify")
         for app in app_list:
             optgroup.add_option(
                 "--path-%s" % app,
                 help="Specify own path for '%s' application (optional)" % app,
-                action="store", type="apppath", dest="path_%s" % app,
+                action="store",
+                type="apppath",
+                dest="path_%s" % app,
                 default=which_or_None(app))
         return optgroup
 
@@ -174,8 +187,10 @@ class MPlayerBackend(Backend):
         logging.debug("Using '%s' to get video's information."
                       % self.options.path_midentify)
 
-        process = subprocess.Popen([self.options.path_midentify, file_name],
-            shell=False, stdout=subprocess.PIPE)
+        process = subprocess.Popen(
+                [self.options.path_midentify, file_name],
+                shell=False,
+                stdout=subprocess.PIPE)
         output = process.stdout.readlines()
         process.wait()
 
@@ -238,18 +253,22 @@ class MPlayerBackend(Backend):
         process = subprocess.Popen(
             "%s -really-quiet -nosound -vo png:z=3:outdir='%s' -frames 1 "
             "-ss %f '%s'" % (
-                self.options.path_mplayer, self.tmp_dir,
-                capture_time, self.file_name),
-            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+                self.options.path_mplayer,
+                self.tmp_dir,
+                capture_time,
+                self.file_name),
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         output = process.stdout.read()
         error = process.stderr.read()
         process.wait()
 
         if not os.path.isfile("%s/00000001.png" % self.tmp_dir):
             if destination is not None:
-                logging.error("Something went wrong when trying to capture "
-                    "frame at %d seconds" % capture_time)
+                logging.error(
+                        "Something went wrong when trying to capture "
+                        "frame at %d seconds" % capture_time)
             return False
         else:
             if destination is not None:
@@ -259,6 +278,7 @@ class MPlayerBackend(Backend):
             # The timestamp will not actually be equal to capture_time always,
             # but it's hard to determine it exactly.
             return capture_time
+
 
 class GStreamerBackend(Backend):
     def __init__(self, options, tmp_dir):
@@ -283,13 +303,17 @@ class GStreamerBackend(Backend):
         decoder = gst.element_factory_make("decodebin", "decoder")
         decoder.connect("new-decoded-pad", self.decoder_callback)
 
-        # PNG encoder, Multiple File sink and colorspace converter required by PNG encoder
+        # PNG encoder, Multiple File sink and colorspace converter required by
+        # PNG encoder
         colorspace = gst.element_factory_make("ffmpegcolorspace", "video-sink")
         pngenc = gst.element_factory_make("pngenc", "png-encoder")
         pngenc.set_property("snapshot", True)
-        multifilesink = gst.element_factory_make("multifilesink", "multi-file-sink")
-        multifilesink.set_property("location",
-            os.path.join(self.tmp_dir, "output-%05d.png"))
+        multifilesink = gst.element_factory_make(
+                "multifilesink",
+                "multi-file-sink")
+        multifilesink.set_property(
+                "location",
+                os.path.join(self.tmp_dir, "output-%05d.png"))
         multifilesink.set_property("post-messages", True)
 
         # Add elements to player pipeline
@@ -304,6 +328,7 @@ class GStreamerBackend(Backend):
         # Initialize gobject MainLoop in a new thread
         gobject.threads_init()
         self.main_loop = gobject.MainLoop()
+
         def main_loop_thread():
             self.main_loop.run()
         self.main_loop_thread = threading.Thread(target=main_loop_thread)
@@ -331,8 +356,8 @@ class GStreamerBackend(Backend):
                 if name in tag_conv:
                     self.info[tag_conv[name]] = message.structure[name]
         # A frame has been captured
-        if (message.type == gst.MESSAGE_ELEMENT and
-            message.src.get_property("name") == "multi-file-sink"):
+        if message.type == gst.MESSAGE_ELEMENT and \
+           message.src.get_property("name") == "multi-file-sink":
             self._capture["capture_time"] = message.structure["timestamp"]
             self._capture["file_name"] = message.structure["filename"]
             self._capture["done"] = True
@@ -393,8 +418,10 @@ class GStreamerBackend(Backend):
         self.file_name = None
 
     def capture_frame(self, capture_time, destination=None):
-        self.player.seek_simple(gst.Format(gst.FORMAT_TIME),
-            gst.SEEK_FLAG_FLUSH, capture_time)
+        self.player.seek_simple(
+                gst.Format(gst.FORMAT_TIME),
+                gst.SEEK_FLAG_FLUSH,
+                capture_time)
         self.player.set_state(gst.STATE_PLAYING)
 
         # Wait for frame to be captured
@@ -408,23 +435,31 @@ class GStreamerBackend(Backend):
             os.remove(self._capture["file_name"])
         return self._capture["capture_time"]
 
+
 class CLIMain:
     def __init__(self):
         # Build command line arguments parser
         parser = OptionParser(
             usage="Usage: %prog [options] file [file ...]",
-            description="Cross-platform python tool which generates a video's "
-                "index preview with multiple screen capture thumbnails.",
+            description=(
+                "Cross-platform python tool which generates a video's "
+                "index preview with multiple screen capture thumbnails."),
             version="%%prog %s" % __version__,
             option_class=OptionAppPath)
 
         parser.set_defaults(logging_level=logging.INFO)
-        parser.add_option("-v", "--verbose",
-            help="Print more detalied information",
-            action="store_const", const=logging.DEBUG, dest="logging_level")
-        parser.add_option("-q", "--quiet",
-            help="Refrain from outputing anything",
-            action="store_const", const=logging.CRITICAL, dest="logging_level")
+        parser.add_option(
+                "-v", "--verbose",
+                help="Print more detalied information",
+                action="store_const",
+                const=logging.DEBUG,
+                dest="logging_level")
+        parser.add_option(
+                "-q", "--quiet",
+                help="Refrain from outputing anything",
+                action="store_const",
+                const=logging.CRITICAL,
+                dest="logging_level")
 
         # Add options to specify paths for each needed application
         self.app_list = ("convert", "montage")
@@ -432,91 +467,158 @@ class CLIMain:
             parser.add_option(
                 "--path-%s" % app,
                 help="Specify own path for '%s' application (optional)" % app,
-                action="store", type="apppath", dest="path_%s" % app,
+                action="store",
+                type="apppath",
+                dest="path_%s" % app,
                 default=which_or_None(app))
 
         # Add options related to the resulting thumbnail such as
         # number of rows or columns, width and height of the thumbnails,
         # the space between them etc
         capture_opts = optparse.OptionGroup(parser, "Capture options")
-        capture_opts.add_option("-r", "--rows",
-            help="Number of rows the generated grid "
-                 "should contain (default %default).",
-            action="store", type="int", dest="grid_rows", default=6)
-        capture_opts.add_option("-c", "--cols", "--columns",
-            help="Number of columns the generated grid "
-                 "should contain (default %default).",
-            action="store", type="int", dest="grid_cols", default=4)
-        capture_opts.add_option("-t", "--title",
-            help="Title for the thumbnail (video's name is default).",
-            action="store", dest="title", default=None)
-        capture_opts.add_option("-W", "--width",
-            help="The width of a single image in the grid in pixels.",
-            action="store", type="int", dest="thumbnail_width", default=None)
-        capture_opts.add_option("-H", "--height",
-            help="The height of a single image in the grid in pixels. "
-                 "If only one of the width and height argument are specified, "
-                 "the other one will be determined so that the aspect ratio "
-                 "of the movie is preserved.",
-            action="store", type="int", dest="thumbnail_height", default=None)
-        capture_opts.add_option("-S", "--spacing",
-            help="The space between images in the grid in pixels. "
-                 "(default %default)",
-            action="store", type="int", dest="grid_spacing", default=4)
-        capture_opts.add_option("--focus",
-            help="Focus on the beginning or the ending of the movie. That "
-                 "means a greater number of thumbnails will be generated in "
-                 "the specified area than in the other part. For example if "
-                 "the focus is on the beginning of the movie, the frequency "
-                 "of captures drops as time goes by. Possible values are "
-                 "'begin', 'end' and 'none'. (default is 'none')",
-            action="store", type="choice", choices=("begin", "end", "none"),
-            dest="capture_focus", default="none")
+        capture_opts.add_option(
+                "-r", "--rows",
+                help=(
+                    "Number of rows the generated grid "
+                    "should contain (default %default)."),
+                action="store",
+                type="int",
+                dest="grid_rows",
+                default=6)
+        capture_opts.add_option(
+                "-c", "--cols", "--columns",
+                help=(
+                    "Number of columns the generated grid "
+                    "should contain (default %default)."),
+                action="store",
+                type="int",
+                dest="grid_cols",
+                default=4)
+        capture_opts.add_option(
+                "-t", "--title",
+                help="Title for the thumbnail (video's name is default).",
+                action="store",
+                dest="title",
+                default=None)
+        capture_opts.add_option(
+                "-W", "--width",
+                help="The width of a single image in the grid in pixels.",
+                action="store",
+                type="int",
+                dest="thumbnail_width",
+                default=None)
+        capture_opts.add_option(
+                "-H", "--height",
+                help=(
+                    "The height of a single image in the grid in pixels. "
+                    "If only one of the width and height argument are "
+                    "specified, the other one will be determined so that the "
+                    "aspect ratio of the movie is preserved."),
+                action="store",
+                type="int",
+                dest="thumbnail_height",
+                default=None)
+        capture_opts.add_option(
+                "-S", "--spacing",
+                help=(
+                    "The space between images in the grid in pixels. "
+                    "(default %default)"),
+                action="store",
+                type="int",
+                dest="grid_spacing",
+                default=4)
+        capture_opts.add_option(
+                "--focus",
+                help=(
+                    "Focus on the beginning or the ending of the movie. That "
+                    "means a greater number of thumbnails will be generated "
+                    "in the specified area than in the other part. For "
+                    "example if the focus is on the beginning of the movie, "
+                    "the frequency of captures drops as time goes by. "
+                    "Possible values are 'begin', 'end' and 'none'. (default "
+                    "is 'none')"),
+                action="store",
+                type="choice",
+                choices=("begin", "end", "none"),
+                dest="capture_focus",
+                default="none")
         parser.add_option_group(capture_opts)
 
         # Add style related options
         style_options = optparse.OptionGroup(parser, "Style options")
-        style_options.add_option("--background",
-            help="Background color (e.g. '#00ff00')",
-            action="store", type="string", dest="background",
-            default="#2f2f2f")
+        style_options.add_option(
+                "--background",
+                help="Background color (e.g. '#00ff00')",
+                action="store",
+                type="string",
+                dest="background",
+                default="#2f2f2f")
         # TODO: better handling of font family arguments
-        style_options.add_option("--font-family",
-            help="Path to TTF file for text",
-            action="store", type="string", dest="font_family",
-            default="/usr/share/fonts/truetype/ttf-dejavu/DejaVuSansMono.ttf")
-        style_options.add_option("--font-size",
-            help="Size of text in pixels",
-            action="store", type="int", dest="font_size", default=12)
-        style_options.add_option("--font-color",
-            help="Color of the text (e.g. 'black', '#000000')",
-            action="store", type="string", dest="font_color",
-            default="#eeeeee")
-        style_options.add_option("--heading-font-family",
-            help="Path to TTF file for heading",
-            action="store", type="string", dest="heading_font_family",
-            default="/usr/share/fonts/truetype/ttf-dejavu/"
-                    "DejaVuSansMono-Bold.ttf")
-        style_options.add_option("--heading-font-size",
-            help="Size of heading in pixels",
-            action="store", type="int", dest="heading_font_size", default=24)
-        style_options.add_option("--heading-font-color",
-            help="Color of the heading (e.g. 'black', '#000000')",
-            action="store", type="string", dest="heading_color",
-            default="#575757")
+        style_options.add_option(
+                "--font-family",
+                help="Path to TTF file for text",
+                action="store",
+                type="string",
+                dest="font_family",
+                default=(
+                    "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSansMono.ttf"))
+        style_options.add_option(
+                "--font-size",
+                help="Size of text in pixels",
+                action="store",
+                type="int",
+                dest="font_size",
+                default=12)
+        style_options.add_option(
+                "--font-color",
+                help="Color of the text (e.g. 'black', '#000000')",
+                action="store",
+                type="string",
+                dest="font_color",
+                default="#eeeeee")
+        style_options.add_option(
+                "--heading-font-family",
+                help="Path to TTF file for heading",
+                action="store",
+                type="string",
+                dest="heading_font_family",
+                default=(
+                    "/usr/share/fonts/truetype/ttf-dejavu/"
+                    "DejaVuSansMono-Bold.ttf"))
+        style_options.add_option(
+                "--heading-font-size",
+                help="Size of heading in pixels",
+                action="store",
+                type="int",
+                dest="heading_font_size",
+                default=24)
+        style_options.add_option(
+                "--heading-font-color",
+                help="Color of the heading (e.g. 'black', '#000000')",
+                action="store",
+                type="string",
+                dest="heading_color",
+                default="#575757")
         parser.add_option_group(style_options)
 
         # Add backend options
-        self.backends = {"mplayer": MPlayerBackend,
-            "gstreamer": GStreamerBackend}
-        parser.add_option("-b", "--backend",
-            help="Backend used to capture images from video. Possible values "
-                 "are 'gstreamer' (default) and 'mplayer'. The gstreamer "
-                 "backend is recommended because it is faster, has better "
-                 "support for video formats and more correctly determines "
-                 "thumbnail timestamps.",
-            action="store", type="choice", choices=self.backends.keys(),
-            dest="backend", default="gstreamer")
+        self.backends = {
+                "mplayer": MPlayerBackend,
+                "gstreamer": GStreamerBackend
+        }
+        parser.add_option(
+                "-b", "--backend",
+                help=(
+                    "Backend used to capture images from video. Possible "
+                    "values are 'gstreamer' (default) and 'mplayer'. The "
+                    "gstreamer backend is recommended because it is faster, "
+                    "has better support for video formats and more correctly "
+                    "determines thumbnail timestamps."),
+                action="store",
+                type="choice",
+                choices=self.backends.keys(),
+                dest="backend",
+                default="gstreamer")
         for backend in self.backends.values():
             option_group = backend.get_option_parser_group(parser)
             if option_group:
@@ -583,9 +685,10 @@ class CLIMain:
         # Determine list of capture times to pass along back to the backend
         logging.debug("Calculating frame capture times.")
         frame_count = self.options.grid_rows * self.options.grid_cols
-        part_length = float(
-            info["duration"] - 2 * self.backend.frame_capture_padding
-        ) / (frame_count + 1)
+        part_length = (
+                float(
+                    info["duration"] - 2 * self.backend.frame_capture_padding)
+                / (frame_count + 1))
         if self.options.capture_focus == "none":
             # All the time intervals between two frames should be equal length.
             frame_times = [part_length + self.backend.frame_capture_padding]
@@ -604,9 +707,11 @@ class CLIMain:
             # base * N + delta * ((N - 1) * N / 2) == (duration - 2 * padding)
             # base + delta * (N - 1) / 2 == (duration - 2 * padding) / N
             base = part_length * 0.2
-            duration = info["duration"] - 2 * self.backend.frame_capture_padding
+            duration = (
+                    info["duration"] - 2 * self.backend.frame_capture_padding)
             delta = (duration / (frame_count + 1) - base) * 2 / frame_count
-            # Calculate frame times for "begin" and convert them if focus is at "end"
+            # Calculate frame times for "begin" and convert them if focus is at
+            # "end"
             frame_times = [base + self.backend.frame_capture_padding]
             last = frame_times[0]
             for i in range(1, frame_count):
@@ -623,8 +728,11 @@ class CLIMain:
         for file, time in frame_files:
             count += 1
             logging.debug("Resizing and annotating frame %d." % count)
-            self.resize_and_annotate_frame(file, width, height,
-                self.backend.capture_time_to_seconds(time))
+            self.resize_and_annotate_frame(
+                    file,
+                    width,
+                    height,
+                    self.backend.capture_time_to_seconds(time))
 
         logging.info("Finished capturing frames. Creating montage.")
         if self.create_montage(file_name, info, self.tmp_dir, frame_files):
@@ -653,8 +761,7 @@ class CLIMain:
              "-bordercolor", self.options.font_color,
              "-border", "1x1",
              file_name],
-            shell=False
-        )
+            shell=False)
         process.wait()
 
     # Create a montage of all frame captures from the tmp directory
@@ -676,8 +783,7 @@ class CLIMain:
              "-tile", "%dx%d" % (cols, rows)]
             + map(lambda item: item[0], files)
             + [montage_file_name],
-            shell=False
-        )
+            shell=False)
         process.wait()
         if not os.path.isfile(montage_file_name):
             logging.error("Error creating montage.")
@@ -715,18 +821,18 @@ class CLIMain:
                                    self.options.grid_spacing),
              "-append",
              montage_file_name],
-            shell=False
-        )
+            shell=False)
         process.wait()
         return True
 
     # Determine what will be written to the thumbnail's header
     def get_header_text(self, file_name, info):
         file_size = os.stat(file_name).st_size
-        text  = "Size   : %s (%d bytes)\n" % (file_size_format(file_size), file_size)
+        text = "Size   : %s (%d bytes)\n" % (
+                file_size_format(file_size),
+                file_size)
         text += "Length : %s\n" % time_format(
-            self.backend.capture_time_to_seconds(info["duration"])
-        )
+                self.backend.capture_time_to_seconds(info["duration"]))
 
         video_info = []
         if "width" in info and "height" in info:
@@ -756,6 +862,7 @@ class CLIMain:
 
         logging.debug("Created image header text:\n%s" % text)
         return text
+
 
 main = CLIMain()
 main.start()
