@@ -9,7 +9,7 @@ def app_path_arg_validate(path):
     path = os.path.abspath(str(path))
     if not os.access(path, os.F_OK | os.R_OK | os.X_OK):
         raise argparse.ArgumentTypeError(
-                "Specified application could not be found: %s" % path)
+                f"Specified application could not be found: {path}")
     return pathlib.Path(path)
 
 
@@ -24,17 +24,17 @@ def add_app_path_arg(parser, *, app):
         default = None
 
     if default:
-        help = "Specify path for '%s' application (optional)" % app
+        help = f"Specify path for '{app}' application (optional)"
         required = False
     else:
-        help = "Specify path for '%s' application" % app
+        help = f"Specify path for '{app}' application"
         required = True
 
     parser.add_argument(
-            "--path-%s" % app,
+            f"--path-{app}",
             help=help,
             type=app_path_arg_validate,
-            dest="path_%s" % app,
+            dest=f"path_{app}",
             default=default,
             required=required)
 

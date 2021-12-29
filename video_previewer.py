@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "0.2.99.05"
+__version__ = "0.2.99.06"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
@@ -63,7 +63,7 @@ class CLIMain:
         parser.add_argument(
                 "--version",
                 action="version",
-                version="%%(prog)s %s" % __version__)
+                version=f"%(prog)s {__version__}")
 
         # Custom help flag which adds flags from all backends
         class CustomHelpAction(argparse.Action):
@@ -252,14 +252,14 @@ class CLIMain:
             # Start working
             for file in self.files:
                 if not file.is_file():
-                    logging.error("File '%s' does not exist." % file)
+                    logging.error(f"File '{file}' does not exist.")
                     continue
 
                 self.process_file(file)
 
     # Generate thumbnail for a video
     def process_file(self, file):
-        logging.info("Started processing file '%s'" % file)
+        logging.info(f"Started processing file '{file}'")
         info = self.backend.load_file(file)
 
         width = self.args.thumbnail_width
@@ -281,8 +281,9 @@ class CLIMain:
         if height is not None and width is None:
             width = int(height * info["width"] / info["height"])
 
-        logging.info("Individual thumbnails will be resized to %dx%d"
-                     % (width, height))
+        logging.info(
+                f"Individual thumbnails will be resized to "
+                f"{width}x{height}")
 
         # Determine list of capture times to pass along back to the backend
         logging.debug("Calculating frame capture times.")
@@ -329,7 +330,7 @@ class CLIMain:
         count = 0
         for frame_file, time in frame_files:
             count += 1
-            logging.debug("Resizing and annotating frame %d." % count)
+            logging.debug(f"Resizing and annotating frame {count}.")
             self.resize_and_annotate_frame(
                     frame_file,
                     width,
@@ -342,7 +343,7 @@ class CLIMain:
         if montage_file:
             destination = file.with_suffix(".png")
             shutil.move(str(montage_file), str(destination))
-            logging.info("Saving final thumbnail to '%s'" % destination)
+            logging.info(f"Saving final thumbnail to '{destination}'")
 
         # Cleanup
         self.backend.unload_file()
@@ -354,13 +355,13 @@ class CLIMain:
     def resize_and_annotate_frame(self, file, width, height, time):
         process = subprocess.Popen(
             [str(self.args.path_convert), str(file),
-             "-resize", "%dx%d!" % (width, height),
+             "-resize", f"{width}x{height}!",
              "-fill", self.args.font_color,
-             "-undercolor", "%s80" % self.args.background,
+             "-undercolor", f"{self.args.background}80",
              "-font", self.args.font_family,
              "-pointsize", str(self.args.font_size),
              "-gravity", "NorthEast",
-             "-annotate", "+0+0", " %s " % time_format(time),
+             "-annotate", "+0+0", f" {time_format(time)} ",
              "-bordercolor", self.args.font_color,
              "-border", "1x1",
              str(file)],
@@ -374,17 +375,17 @@ class CLIMain:
         if len(frame_files) != rows * cols:
             rows = int(math.ceil(float(len(frame_files)) / cols))
             logging.info(
-                    "Only %d captures, so the "
-                    "grid will be %d by %d" % (len(frame_files), rows, cols))
+                    f"Only {len(frame_files)} captures, so the "
+                    f"grid will be {rows} by {cols}")
 
         montage_file = tmp_dir / "montage.png"
         process = subprocess.Popen(
             [str(self.args.path_montage),
-             "-geometry", "+%d+%d" % (self.args.grid_spacing,
-                                      self.args.grid_spacing),
+             "-geometry",
+             f"+{self.args.grid_spacing}+{self.args.grid_spacing}",
              "-background", self.args.background,
              "-fill", self.args.font_color,
-             "-tile", "%dx%d" % (cols, rows)]
+             "-tile", f"{cols}x{rows}"]
             + [str(frame_file) for frame_file, _time in frame_files]
             + [str(montage_file)],
             shell=False)
@@ -407,22 +408,22 @@ class CLIMain:
              "-fill", self.args.heading_color,
              "-font", self.args.heading_font_family,
              "-pointsize", str(self.args.heading_font_size),
-             "label:%s" % title,
+             f"label:{title}",
 
              # Header
              "-fill", self.args.font_color,
              "-font", self.args.font_family,
              "-pointsize", str(self.args.font_size),
-             "label:%s" % header,
+             f"label:{header}",
 
              # Border for title and header
-             "-border", "%dx%d" % (self.args.grid_spacing, 0),
+             "-border", f"{self.args.grid_spacing}x0",
 
              # Montage
              str(montage_file),
              # Border for montage
-             "-border", "%dx%d" % (self.args.grid_spacing,
-                                   self.args.grid_spacing),
+             "-border", f"{self.args.grid_spacing}x{self.args.grid_spacing}",
+
              "-append",
              str(montage_file)],
             shell=False)
@@ -432,17 +433,17 @@ class CLIMain:
     # Determine what will be written to the thumbnail's header
     def get_header_text(self, file, info):
         file_size = file.stat().st_size
-        text = "Size   : %s (%d bytes)\n" % (
-                file_size_format(file_size),
-                file_size)
-        text += "Length : %s\n" % time_format(
+        text = f"Size   : {file_size_format(file_size)} ({file_size} bytes)\n"
+
+        formatted_duration = time_format(
                 self.backend.capture_time_to_seconds(info["duration"]))
+        text += f"Length : {formatted_duration}\n"
 
         video_info = []
         if "width" in info and "height" in info:
-            video_info.append("%dx%d" % (info["width"], info["height"]))
+            video_info.append(f"{info['width']}x{info['height']}")
         if "video_codec" in info:
-            video_info.append("%s" % info["video_codec"])
+            video_info.append(f"{info['video_codec']}")
         if "video_framerate" in info:
             video_info.append("%.2f frames/sec" % info["video_framerate"])
         if "video_bitrate" in info:
@@ -454,9 +455,9 @@ class CLIMain:
 
         audio_info = []
         if "audio_channels" in info:
-            audio_info.append("%d channel(s)" % info["audio_channels"])
+            audio_info.append(f"{info['audio_channels']} channel(s)")
         if "audio_codec" in info:
-            audio_info.append("%s" % info["audio_codec"])
+            audio_info.append(f"{info['audio_codec']}")
         if "audio_rate" in info:
             audio_info.append("%.2f kHz" % (info["audio_rate"] / 1000.0))
         if "audio_bitrate" in info:
@@ -464,7 +465,7 @@ class CLIMain:
         if len(audio_info):
             text += "Audio  : " + ", ".join(audio_info)
 
-        logging.debug("Created image header text:\n%s" % text)
+        logging.debug(f"Created image header text:\n{text}")
         return text
 
 

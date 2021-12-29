@@ -98,8 +98,8 @@ class GStreamerBackend(BaseBackend):
                             for index in range(tag_size)
                             ]
                     logging.info(
-                            "Unexpected tag with multiple values: %s - %s"
-                            % (tag_name, tag_values))
+                            f"Unexpected tag with multiple values: "
+                            f"{tag_name} - {tag_values}")
 
                 if tag_name in tag_conv:
                     self.info[tag_conv[tag_name]] = tag_value

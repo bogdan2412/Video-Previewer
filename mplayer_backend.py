@@ -28,8 +28,8 @@ class MPlayerBackend(BaseBackend):
     def load_file(self, file_name):
         self.file_name = file_name
         logging.debug(
-                "Using '%s' to get video's information."
-                % self.args.path_midentify)
+                f"Using {self.args.path_midentify} to get video's "
+                f"information.")
 
         process = subprocess.Popen(
                 [str(self.args.path_midentify), str(file_name)],
@@ -80,7 +80,7 @@ class MPlayerBackend(BaseBackend):
 
             self.duration_scale = left - EPS
             info["duration"] *= self.duration_scale
-            logging.debug("The determined scale is %f." % self.duration_scale)
+            logging.debug(f"The determined scale is {self.duration_scale}.")
             logging.info("Finished adjusting times. Starting frame capture.")
 
             # Delete unreliable information
@@ -94,12 +94,13 @@ class MPlayerBackend(BaseBackend):
     def capture_frame(self, capture_time, destination=None):
         # TODO: figure out how to run this with shell=False
         process = subprocess.Popen(
-            "%s -really-quiet -nosound -vo png:z=3:outdir=%s -frames 1 "
-            "-ss %f %s" % (
-                shlex.quote(str(self.args.path_mplayer)),
-                shlex.quote(str(self.tmp_dir)),
-                capture_time,
-                shlex.quote(str(self.file_name))),
+            f"{shlex.quote(str(self.args.path_mplayer))} "
+            f"-really-quiet "
+            f"-nosound "
+            f"-vo png:z=3:outdir={shlex.quote(str(self.tmp_dir))} "
+            f"-frames 1 "
+            f"-ss {float(capture_time)} "
+            f"{shlex.quote(str(self.file_name))}",
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE)
@@ -111,8 +112,8 @@ class MPlayerBackend(BaseBackend):
         if not expected_output_file.is_file():
             if destination is not None:
                 logging.error(
-                        "Something went wrong when trying to capture "
-                        "frame at %d seconds" % capture_time)
+                        f"Something went wrong when trying to capture "
+                        f"frame at {capture_time} seconds")
             return False
         else:
             if destination is not None:
