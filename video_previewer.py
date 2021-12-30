@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "0.2.99.06"
+__version__ = "0.2.99.07"
 
 __copyright__ = """
 Copyright (c) 2009-2021 Bogdan Tataroiu
@@ -20,7 +20,7 @@ import tempfile
 
 from mplayer_backend import MPlayerBackend
 from gstreamer_backend import GStreamerBackend
-from util import add_app_path_arg, safe_int_log
+from util import add_app_path_arg, font_file_arg, safe_int_log
 
 
 # Returns a humanized string for a given amount of seconds
@@ -173,13 +173,14 @@ class CLIMain:
                 help="Background color (e.g. '#00ff00')",
                 dest="background",
                 default="#2f2f2f")
-        # TODO: better handling of font family arguments
         style_args.add_argument(
                 "--font-family",
-                help="Path to TTF file for text",
+                help=(
+                    "Font used for text, either as a .ttf file or as a "
+                    "fontconfig pattern (default '%(default)s')"),
                 dest="font_family",
-                default=(
-                    "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSansMono.ttf"))
+                type=font_file_arg,
+                default="DejaVu Sans")
         style_args.add_argument(
                 "--font-size",
                 help="Size of text in pixels",
@@ -193,11 +194,12 @@ class CLIMain:
                 default="#eeeeee")
         style_args.add_argument(
                 "--heading-font-family",
-                help="Path to TTF file for heading",
+                help=(
+                    "Font used for heading, either as a .ttf file or as a "
+                    "fontconfig pattern (default '%(default)s')"),
                 dest="heading_font_family",
-                default=(
-                    "/usr/share/fonts/truetype/ttf-dejavu/"
-                    "DejaVuSansMono-Bold.ttf"))
+                type=font_file_arg,
+                default="DejaVu Sans:style=bold")
         style_args.add_argument(
                 "--heading-font-size",
                 help="Size of heading in pixels",
